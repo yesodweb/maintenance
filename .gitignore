@@ -1,0 +1,7 @@
+release/wai
+release/hamlet
+release/persistent
+release/yesod
+release/tarballs
+dist
+*.swp
