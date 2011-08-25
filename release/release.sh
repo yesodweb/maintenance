@@ -18,7 +18,6 @@ function update-install {
 for p in $PACKAGES
 do
     update-install $p
-echo FOO
 done
 
 # Special yesod scaffolding test
@@ -33,12 +32,27 @@ do
     do
         if [ -d $d ]
         then
-            cd $d
-            rm -f dist/*.gz
-            cabal sdist
-            mv dist/*.gz $DIR/tarballs
+            if [ -f $d/*.cabal ]
+            then
+                cd $d
+                rm -f dist/*.gz
+                # FIXME use cabal check
+                cabal sdist || exit 1
+                mv dist/*.gz $DIR/tarballs
+            fi
         fi
     done
 done
 
-runghc $DIR/../sdist-check/sdist-check.hs $DIR/tarballs
+# Inspired by http://neilmitchell.blogspot.com/2010/10/enhanced-cabal-sdist.html
+for f in $DIR/tarballs/*.tar.gz
+do
+    cd $DIR
+    rm -rf tmp
+    mkdir tmp
+    cd tmp
+    # FIXME use cabal check and cabal haddock --executables
+    tar zxfv $f && cd * && cabal configure && cabal build || exit 1
+done
+
+runghc $DIR/sdist-check.hs $DIR/tarballs
