@@ -1,7 +1,7 @@
 #!/bin/bash -x
 
 DIR=$(pwd)
-PACKAGES="wai hamlet persistent yesod"
+. package-list.sh
 
 # Pull newest code, install and run test suites
 function update-install {
@@ -23,39 +23,6 @@ done
 # Special yesod scaffolding test
 cd $DIR/yesod/yesod && ./test/run.sh || exit 1
 
-# Generate tarballs
-rm -rf $DIR/tarballs
-mkdir $DIR/tarballs
-for p in $PACKAGES
-do
-    for d in $DIR/$p/*
-    do
-        if [ -d $d ]
-        then
-            if [ -f $d/*.cabal ]
-            then
-                cd $d
-                rm -f dist/*.gz
-                # FIXME use cabal check
-                cabal sdist || exit 1
-                mv dist/*.gz $DIR/tarballs
-            fi
-        fi
-    done
-done
-
-# Add a missing package or two
-cabal install hint || exit 1
-
-# Inspired by http://neilmitchell.blogspot.com/2010/10/enhanced-cabal-sdist.html
-for f in $DIR/tarballs/*.tar.gz
-do
-    cd $DIR
-    rm -rf tmp
-    mkdir tmp
-    cd tmp
-    # FIXME use cabal check and cabal haddock --executables
-    tar zxfv $f && cd * && cabal configure && cabal build || exit 1
-done
-
-runghc $DIR/sdist-check.hs $DIR/tarballs
+. generate-tarballs.sh
+. build-tarballs.sh
+. check-tarballs.sh

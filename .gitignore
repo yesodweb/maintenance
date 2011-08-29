@@ -3,3 +3,11 @@ test-book/tmp
 test-book/extract
 test-book/extract.hi
 test-book/extract.o
+
+release/hamlet
+release/persistent
+release/wai
+release/yesod
+release/tarballs
+
+*.swp
