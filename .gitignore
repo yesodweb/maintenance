@@ -1,7 +1,5 @@
-release/wai
-release/hamlet
-release/persistent
-release/yesod
-release/tarballs
-dist
-*.swp
+test-book/book
+test-book/tmp
+test-book/extract
+test-book/extract.hi
+test-book/extract.o
