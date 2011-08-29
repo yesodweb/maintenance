@@ -44,6 +44,9 @@ do
     done
 done
 
+# Add a missing package or two
+cabal install hint || exit 1
+
 # Inspired by http://neilmitchell.blogspot.com/2010/10/enhanced-cabal-sdist.html
 for f in $DIR/tarballs/*.tar.gz
 do
