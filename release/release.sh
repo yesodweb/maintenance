@@ -23,6 +23,6 @@ done
 # Special yesod scaffolding test
 cd $DIR/yesod/yesod && ./test/run.sh || exit 1
 
-. generate-tarballs.sh
-. build-tarballs.sh
-. check-tarballs.sh
+source $DIR/generate-tarballs.sh
+source $DIR/build-tarballs.sh
+source $DIR/check-tarballs.sh

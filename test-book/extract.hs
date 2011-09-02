@@ -69,6 +69,7 @@ goNode base (X.NodeElement (X.Element "codeblock" as [X.NodeContent t]))
             putStrLn $ "Writing: " ++ encodeString fp
             TIO.writeFile (encodeString fp) t
         tell $ Set.singleton fp
+    | lookup "outputclass" as == Nothing = error $ "codeblock missing outputclass in: " ++ show base
     | otherwise =
         case saveFile t of
             Nothing -> return ()
