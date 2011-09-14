@@ -8,6 +8,8 @@ curl $HOST/show/map/1/download > map-1.zip
 ./zip-to-folder map-1 book
 rm map-1.zip
 
+runghc add-chunking.hs book/yesod-web-framework-book/*.ditamap
+
 runghc get-blogs.hs $HOST
 rm -rf blogs
 mkdir blogs
@@ -16,4 +18,4 @@ bash -ex ../get-blogs.sh
 cd ..
 rm get-blogs.sh
 
-rm zip-to-folder
+rm zip-to-folder zip-to-folder.o zip-to-folder.hi

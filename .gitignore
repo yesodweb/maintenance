@@ -11,8 +11,6 @@ release/yesod
 release/tarballs
 
 *.swp
-*.hi
-*.o
 
 site-migration/blogs
 site-migration/book
