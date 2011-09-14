@@ -27,7 +27,8 @@ main = do
         let fp = decodeString out </> fp'
         createTree $ directory fp
         let as = [("id", id')]
-        let ar = T.replicate (length $ filter (== '/') $ encodeString fp) "../"
+        let isTrailingSlash = last (encodeString fp') == '/'
+        let ar = T.replicate (length (filter (== '/') $ encodeString fp') - if isTrailingSlash then 1 else 0) "../"
         writeFile def (encodeString fp) $ Document a (fixHrefs ar toDst $ Element root as ns) b
 
 fixHrefs ar toDst (Element e as ns) =

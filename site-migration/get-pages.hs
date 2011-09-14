@@ -30,13 +30,38 @@ main = do
 
 go host pi = do
     ti <- fmap (read . L8.unpack) $ simpleHttp $ host ++ "/extract/topic/" ++ (T.unpack $ piTopic pi)
-    let ext =
+    let (ext, wrapper) =
             case tiFormat ti of
-                TFMarkdown -> "markdown"
-                TFHtml -> "html"
-                TFText -> "txt"
-                TFDitaConcept -> error "dita concept"
-                TFDitaTopic -> error "dita topic"
+                TFMarkdown -> ("markdown", noWrapper)
+                TFHtml -> ("html", noWrapper)
+                TFText -> ("txt", noWrapper)
+                TFDitaConcept -> ("dita", concept)
+                TFDitaTopic -> ("dita", topic)
     let fp = (if piWiki pi then "wiki" else "page") </> fromText (piName pi) </> "index" <.> ext
     createTree (directory fp)
-    writeTextFile fp $ tiContent ti
+    writeTextFile fp $ wrapper (tiTitle ti) $ tiContent ti
+
+noWrapper _ t = t
+concept title t = T.concat
+    [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+    , "<!DOCTYPE concept PUBLIC \"-//OASIS//DTD DITA Concept//EN\" \"concept.dtd\">"
+    , "<concept id=\"ignored\"><title>"
+    , T.concatMap escape title
+    , "</title><conbody>"
+    , t
+    , "</conbody></concept>"
+    ]
+topic title t = T.concat
+    [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+    , "<!DOCTYPE topic PUBLIC \"-//OASIS//DTD DITA Concept//EN\" \"topic.dtd\">"
+    , "<topic id=\"ignored\"><title>"
+    , T.concatMap escape title
+    , "</title><body>"
+    , t
+    , "</body></topic>"
+    ]
+
+escape '<' = "&lt;"
+escape '>' = "&gt;"
+escape '&' = "&amp;"
+escape c = T.singleton c
