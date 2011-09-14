@@ -2,7 +2,7 @@
 import Prelude hiding (FilePath)
 import Filesystem
 import Filesystem.Path.CurrentOS
-import qualified Text.XML.Enumerator.Resolved as X
+import qualified Text.XML as X
 import System.Environment (getArgs)
 import Control.Monad.Trans.RWS
 import Control.Monad.IO.Class (liftIO)
@@ -43,7 +43,7 @@ go fp = do
 
 goFile :: FilePath -> M ()
 goFile fp = do
-    edoc <- liftIO $ X.readFile (encodeString fp) X.decodeEntities
+    edoc <- liftIO $ X.readFile X.def (encodeString fp)
     case edoc of
         Left{} -> return ()
         Right (X.Document _ (X.Element _ _ ns) _)->
