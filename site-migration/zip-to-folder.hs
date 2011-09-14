@@ -9,6 +9,7 @@ import Control.Monad.Trans.RWS
 import qualified Data.Text as T
 import Control.Monad
 import Filesystem (createTree)
+import System.Environment (getArgs)
 
 data Maps = Maps
     { mSrc2Dst :: Map.Map String FilePath
@@ -18,10 +19,12 @@ data Maps = Maps
 
 main :: IO ()
 main = do
-    zipLBS <- L.readFile "map-1.zip"
+    [m, out] <- getArgs
+    zipLBS <- L.readFile $ m ++ ".zip"
     files <- fmap Map.unions $ mapM loadEntry $ zEntries $ toArchive zipLBS
-    ((), Maps toDst toSrc, ()) <- runRWST (makeMaps id "map-1.ditamap") files (Maps Map.empty Map.empty)
-    forM_ (Map.toList toSrc) $ \(fp, (id', Document a (Element root _ ns) b)) -> do
+    ((), Maps toDst toSrc, ()) <- runRWST (makeMaps id $ m ++ ".ditamap") files (Maps Map.empty Map.empty)
+    forM_ (Map.toList toSrc) $ \(fp', (id', Document a (Element root _ ns) b)) -> do
+        let fp = decodeString out </> fp'
         createTree $ directory fp
         let as = [("id", id')]
         let ar = T.replicate (length $ filter (== '/') $ encodeString fp) "../"
