@@ -12,6 +12,7 @@ data BI = BI
     { biUTC :: UTCTime
     , biMap :: T.Text
     , biSlug :: T.Text
+    , biAuthor :: T.Text
     }
     deriving (Show, Read)
 
@@ -42,18 +43,25 @@ sql bi = do
                     return newfile
                 _ -> return file
         _ -> return file
+    author <-
+        case biAuthor bi of
+            "michael@snoyman.com" -> return "1"
+            "greg@gregweber.info" -> return "3"
+            _ -> error $ "Unknown author: " ++ show (biAuthor bi)
     let s = concat
             [ "INSERT INTO \"Blog\" (posted, contents, slug, year, month, author, title) VALUES('"
             , show $ biUTC bi
             , "','home/1/"
-            , concatMap escape $ drop 2 $ encodeString file'
+            , concatMap escape $ dropDotSlash $ encodeString file'
             , "','"
             , T.unpack $ biSlug bi
             , "',"
             , show year
             , ","
             , show month
-            , ",1,'"
+            , ","
+            , author
+            , ",'"
             , concatMap escape $ T.unpack title
             , "');"
             ]
@@ -74,3 +82,5 @@ sql bi = do
     escape c = [c]
     noSlash '/' = '-'
     noSlash c = c
+    dropDotSlash ('.':'/':x) = x
+    dropDotSlash x = x

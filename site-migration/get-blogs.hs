@@ -8,6 +8,7 @@ data BI = BI
     { biUTC :: UTCTime
     , biMap :: T.Text
     , biSlug :: T.Text
+    , biAuthor :: T.Text
     }
     deriving (Show, Read)
 
