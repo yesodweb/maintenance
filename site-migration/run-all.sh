@@ -9,10 +9,10 @@ curl $HOST/show/map/1/download > map-1.zip
 rm map-1.zip
 runghc add-chunking.hs book/yesod-web-framework-book/*.ditamap
 
-#rm -rf wiki page
-#runghc get-pages.hs $HOST
+rm -rf wiki page
+runghc get-pages.hs $HOST
 
-#runghc get-blogs.hs $HOST
+runghc get-blogs.hs $HOST
 rm -rf blogs
 mkdir blogs
 cd blogs
