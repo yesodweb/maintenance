@@ -11,6 +11,9 @@ import qualified Data.Text.IO as TIO
 import Control.Monad (when, unless, filterM)
 import qualified Data.Set as Set
 import Data.List (sort)
+import Filesystem.Enumerator
+import Data.Enumerator (($$), (=$), run_)
+import qualified Data.Enumerator.List as EL
 
 type M = RWST FilePath (Set.Set FilePath) Int IO
 
@@ -22,42 +25,31 @@ main = do
             let infolder = decodeString a
                 outfolder = decodeString b
             createTree outfolder
-            ditas <- listDirectory infolder >>= filterM isDita
-            ((), _, files) <- runRWST (mapM_ goFile $ sort ditas) outfolder 1
-            listDirectory outfolder >>= mapM_ (\fp -> unless (fp `Set.member` files || not (hasExtension fp "hs")) $ do
+            ditas <- run_ $ traverse False infolder $$ EL.filter (flip hasExtension "dita") =$ EL.consume
+            ((), _, files) <- runRWST (mapM_ (goFile infolder) $ sort ditas) outfolder 1
+            run_ $ traverse False outfolder $$ EL.mapM_ (\fp -> unless (fp `Set.member` files || not (hasExtension fp "hs")) $ do
                 removeFile fp
                 putStrLn $ "Pruning: " ++ encodeString fp)
         _ -> error $ "Usage: extract <infolder> <outfolder>"
 
-isDita :: FilePath -> IO Bool
-isDita fp = if hasExtension fp "dita" then isFile fp else return False
-
-go :: FilePath -> M ()
-go fp = do
-    f <- liftIO $ isFile fp
-    if f
-        then goFile fp
-        else do
-            d <- liftIO $ isDirectory fp
-            if d then liftIO (listDirectory fp) >>= mapM_ go else return ()
-
-goFile :: FilePath -> M ()
-goFile fp = do
+goFile :: FilePath -> FilePath -> M ()
+goFile infolder fp = do
+    Just relpath <- return $ stripPrefix infolder fp
     edoc <- liftIO $ X.readFile X.def (encodeString fp)
     case edoc of
         Left{} -> return ()
         Right (X.Document _ (X.Element _ _ ns) _)->
-            mapM_ (goNode $ basename fp) ns
+            mapM_ (goNode relpath) ns
 
 goNode :: FilePath -> X.Node -> M ()
-goNode base (X.NodeElement (X.Element "codeblock" as [X.NodeContent t]))
+goNode src (X.NodeElement (X.Element "codeblock" as [X.NodeContent t]))
     | lookup "outputclass" as == Just "haskell" && hasMain t = do
         dir <- ask
         i <- get
         let i' = i + 1
         put i'
-        let fn = T.concat [T.pack $ show i, "-", either id id $ toText base]
-        let fp = dir </> fromText fn <.> "hs"
+        let fn = T.concat [T.pack $ show i, "-", either id id $ toText (basename src)]
+        let fp = collapse $ dir </> directory src </> fromText fn <.> "hs"
         f <- liftIO $ isFile fp
         toWrite <-
             if f
@@ -67,9 +59,10 @@ goNode base (X.NodeElement (X.Element "codeblock" as [X.NodeContent t]))
                 else return True
         when toWrite $ liftIO $ do
             putStrLn $ "Writing: " ++ encodeString fp
+            liftIO $ createTree $ directory fp
             TIO.writeFile (encodeString fp) t
         tell $ Set.singleton fp
-    | lookup "outputclass" as == Nothing = error $ "codeblock missing outputclass in: " ++ show base
+    | lookup "outputclass" as == Nothing = error $ "codeblock missing outputclass in: " ++ show src
     | otherwise =
         case saveFile t of
             Nothing -> return ()
