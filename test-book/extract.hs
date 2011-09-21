@@ -34,7 +34,11 @@ main = do
 
 goFile :: FilePath -> FilePath -> M ()
 goFile infolder fp = do
-    Just relpath <- return $ stripPrefix infolder fp
+    let mrelpath = stripPrefix infolder fp
+    relpath <-
+        case mrelpath of
+            Just x -> return x
+            Nothing -> error $ "Invalid result from stripPrefix on: " ++ show (infolder, fp)
     edoc <- liftIO $ X.readFile X.def (encodeString fp)
     case edoc of
         Left{} -> return ()
@@ -43,25 +47,8 @@ goFile infolder fp = do
 
 goNode :: FilePath -> X.Node -> M ()
 goNode src (X.NodeElement (X.Element "codeblock" as [X.NodeContent t]))
-    | lookup "outputclass" as == Just "haskell" && hasMain t = do
-        dir <- ask
-        i <- get
-        let i' = i + 1
-        put i'
-        let fn = T.concat [T.pack $ show i, "-", either id id $ toText (basename src)]
-        let fp = collapse $ dir </> directory src </> fromText fn <.> "hs"
-        f <- liftIO $ isFile fp
-        toWrite <-
-            if f
-                then do
-                    t' <- liftIO $ TIO.readFile (encodeString fp)
-                    return $ t /= t'
-                else return True
-        when toWrite $ liftIO $ do
-            putStrLn $ "Writing: " ++ encodeString fp
-            liftIO $ createTree $ directory fp
-            TIO.writeFile (encodeString fp) t
-        tell $ Set.singleton fp
+    | lookup "outputclass" as == Just "haskell" && hasMain t = writeCodeblock src t "hs"
+    | lookup "outputclass" as == Just "lhaskell" && hasMainLit t = writeCodeblock src t "lhs"
     | lookup "outputclass" as == Nothing = error $ "codeblock missing outputclass in: " ++ show src
     | otherwise =
         case saveFile t of
@@ -81,3 +68,26 @@ saveFile t =
 
 hasMain :: T.Text -> Bool
 hasMain = any (T.isPrefixOf "main =") . T.lines
+
+hasMainLit :: T.Text -> Bool
+hasMainLit = any (T.isPrefixOf "> main =") . T.lines
+
+writeCodeblock src t ext = do
+    dir <- ask
+    i <- get
+    let i' = i + 1
+    put i'
+    let fn = T.concat [T.pack $ show i, "-", either id id $ toText (basename src)]
+    let fp = collapse $ dir </> directory src </> fromText fn <.> ext
+    f <- liftIO $ isFile fp
+    toWrite <-
+        if f
+            then do
+                t' <- liftIO $ TIO.readFile (encodeString fp)
+                return $ t /= t'
+            else return True
+    when toWrite $ liftIO $ do
+        putStrLn $ "Writing: " ++ encodeString fp
+        liftIO $ createTree $ directory fp
+        TIO.writeFile (encodeString fp) t
+    tell $ Set.singleton fp

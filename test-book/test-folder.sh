@@ -1,7 +1,10 @@
-ghc --make extract.hs && ./extract $1 tmp || exit 1
+#!/bin/bash -ex
+
+ghc --make extract.hs
+./extract $1 tmp
 
 cd tmp
-for f in $(find . -name \*.hs)
+for f in $(find . -name \*.lhs) $(find . -name \*.hs)
 do
-    ghc -Werror $f -lpthread || exit 1
+    ghc -Werror $f -lpthread
 done
