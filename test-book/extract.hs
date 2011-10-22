@@ -55,7 +55,8 @@ goNode src (X.NodeElement (X.Element "codeblock" as [X.NodeContent t]))
             Nothing -> return ()
             Just fp -> do
                 dir <- ask
-                liftIO $ TIO.writeFile (encodeString $ dir </> fp) t
+                liftIO $ createTree $ directory $ dir </> fp
+                liftIO $ TIO.writeFile (encodeString $ dir </> fp) $ T.drop 1 $ T.dropWhile (/= '\n') t
 goNode base (X.NodeElement (X.Element _ _ ns)) = mapM_ (goNode base) ns
 goNode _ _ = return ()
 
