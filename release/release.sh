@@ -12,7 +12,7 @@ function update-install {
         git clone https://github.com/yesodweb/$1.git
     fi
 
-    cd $DIR/$1 && ./install-all.sh || exit 1
+    cd $DIR/$1 && git submodule update --init && ./scripts/install || exit 1
 }
 
 for p in $PACKAGES

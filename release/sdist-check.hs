@@ -11,7 +11,7 @@ import Safe
 import qualified Data.ByteString.Char8 as S8
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Control.Monad (unless, when)
+import Control.Monad (unless, when, forM_)
 import qualified Data.ByteString.Lazy as L
 import Codec.Compression.GZip (decompress)
 import qualified Codec.Archive.Tar as Tar
@@ -83,6 +83,8 @@ main = withManager $ \m -> do
         Just s -> do
             putStrLn "\nThe following new packages exist locally:"
             mapM_ say $ Set.toList s
+            forM_ (Set.toList s) $ \fp -> do
+                copyFile fp $ "to-release" </> filename fp
 
     case Map.lookup NeedsVersionBump m of
         Nothing -> putStrLn "\nNo version bumps required, good to go!"
