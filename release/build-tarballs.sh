@@ -12,6 +12,5 @@ do
     rm -rf tmp
     mkdir tmp
     cd tmp
-    # FIXME use cabal check and cabal haddock --executables
-    tar zxfv $f && cd * && cabal configure && cabal build || exit 1
+    tar zxfv $f && cd * && cabal configure --enable-tests && cabal build && cabal test && cabal check && cabal haddock --executables || exit 1
 done

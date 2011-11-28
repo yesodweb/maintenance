@@ -24,4 +24,9 @@ do
 done
 
 # Get rid of specific, unused packages
-rm $DIR/tarballs/yesod-examples-*.tar.gz $DIR/tarballs/persistent-mongoDB-*.tar.gz $DIR/tarballs/wai-handler-webkit-*.tar.gz $DIR/tarballs/persistent-test-*.tar.gz
+rm \
+    $DIR/tarballs/yesod-examples-*.tar.gz \
+    $DIR/tarballs/persistent-mongoDB-*.tar.gz \
+    $DIR/tarballs/wai-handler-webkit-*.tar.gz \
+    $DIR/tarballs/wai-eventsource-*.tar.gz \
+    $DIR/tarballs/persistent-test-*.tar.gz
