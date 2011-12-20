@@ -130,6 +130,9 @@ go m fp = do
                                             createTree $ directory localFileYackage
                                             L.writeFile (encodeString localFileYackage) $ responseBody resY
                                             handleFile localFileYackage OnlyOnYackage
+                                        | statusCode resY == 502 -> do
+                                            debug $ "Yackage isn't running"
+                                            return DoesNotExist
                                         | otherwise -> error $ "Invalid status code: " ++ show (statusCode resY)
                             | statusCode resH == 200 -> do
                                 createTree $ directory localFileHackage
