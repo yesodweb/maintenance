@@ -14,6 +14,7 @@ import Data.List (sort)
 import Filesystem.Enumerator
 import Data.Enumerator (($$), (=$), run_)
 import qualified Data.Enumerator.List as EL
+import Control.Exception (try, SomeException)
 
 type M = RWST FilePath (Set.Set FilePath) Int IO
 
@@ -39,8 +40,8 @@ goFile infolder fp = do
         case mrelpath of
             Just x -> return x
             Nothing -> error $ "Invalid result from stripPrefix on: " ++ show (infolder, fp)
-    edoc <- liftIO $ X.readFile X.def (encodeString fp)
-    case edoc of
+    edoc <- liftIO $ try $ X.readFile X.def fp
+    case edoc :: Either SomeException X.Document of
         Left{} -> return ()
         Right (X.Document _ (X.Element _ _ ns) _)->
             mapM_ (goNode relpath) ns

@@ -5,14 +5,14 @@ DIR=$(pwd)
 
 # Pull newest code, install and run test suites
 function update-install {
-    if [ -d $1 ]
+    if [ -d $DIR/$1 ]
     then
         cd $DIR/$1 && git pull || exit 1
     else
         git clone https://github.com/yesodweb/$1.git
     fi
 
-    cd $DIR/$1 && git submodule update --init && ./scripts/install || exit 1
+    cd $DIR/$1 && git submodule update --init && ./scripts/install --fast || exit 1
 }
 
 for p in $PACKAGES
