@@ -48,24 +48,22 @@ goFile infolder fp = do
 
 goNode :: FilePath -> X.Node -> M ()
 goNode src (X.NodeElement (X.Element "codeblock" as [X.NodeContent t]))
+    | Just fp <- saveFile t = do
+        dir <- ask
+        liftIO $ createTree $ directory $ dir </> fp
+        liftIO $ TIO.writeFile (encodeString $ dir </> fp) $ T.drop 1 $ T.dropWhile (/= '\n') t
+        tell $ Set.singleton $ collapse $ dir </> fp
     | lookup "outputclass" as == Just "haskell" && hasMain t = writeCodeblock src t "hs"
     | lookup "outputclass" as == Just "lhaskell" && hasMainLit t = writeCodeblock src t "lhs"
     | lookup "outputclass" as == Nothing = error $ "codeblock missing outputclass in: " ++ show src
-    | otherwise =
-        case saveFile t of
-            Nothing -> return ()
-            Just fp -> do
-                dir <- ask
-                liftIO $ createTree $ directory $ dir </> fp
-                liftIO $ TIO.writeFile (encodeString $ dir </> fp) $ T.drop 1 $ T.dropWhile (/= '\n') t
+    | otherwise = return ()
 goNode base (X.NodeElement (X.Element _ _ ns)) = mapM_ (goNode base) ns
 goNode _ _ = return ()
 
 saveFile :: T.Text -> Maybe FilePath
 saveFile t =
     case T.lines t of
-        a:_
-            | "-- @" `T.isPrefixOf` a -> Just $ fromText $ T.drop 4 a
+        a:_ -> fmap fromText $ T.stripPrefix "-- @" a
         _ -> Nothing
 
 hasMain :: T.Text -> Bool
