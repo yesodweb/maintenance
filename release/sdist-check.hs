@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 import Prelude hiding (FilePath)
 import System.Environment (getArgs)
-import Network.HTTP.Enumerator
+import Network.HTTP.Conduit
+import Network.HTTP.Types (status200, status404, status502)
 import Filesystem
 import Filesystem.Path.CurrentOS hiding (concat)
 import qualified Data.Text as T
@@ -15,10 +17,11 @@ import Control.Monad (unless, when, forM_)
 import qualified Data.ByteString.Lazy as L
 import Codec.Compression.GZip (decompress)
 import qualified Codec.Archive.Tar as Tar
-import Codec.Zlib.Enum (ungzip)
-import qualified Data.Enumerator as E
-import qualified Data.Enumerator.List as EL
+import Data.Conduit.Zlib (ungzip)
+import qualified Data.Conduit as C
+import qualified Data.Conduit.List as CL
 import Control.Exception (try, Exception, SomeException (..), handle)
+import Control.Monad.IO.Class (liftIO)
 
 debug :: String -> IO ()
 #ifdef DEBUG
@@ -58,7 +61,8 @@ getUrlYackage (Package a b) = do
         ]
 
 main :: IO ()
-main = withManager $ \m -> do
+main = do
+    m <- newManager def
     (dir':args) <- getArgs
     let toPrune = args == ["--prune"]
     ss <- listDirectory (decodeString dir') >>= mapM (go m)
@@ -99,10 +103,10 @@ go :: Manager -> FilePath -> IO (Map.Map Status (Set.Set FilePath))
 go m fp = do
     let base = T.reverse $ T.drop 7 $ T.reverse $ either id id $ toText $ filename fp
     let package = parsePackage $ T.unpack base
-    localFileHackage <- getHackageFile package
-    localFileYackage <- getYackageFile package
-    fh <- isFile localFileHackage
-    fy <- isFile localFileYackage
+    localFileHackage <- liftIO $ getHackageFile package
+    localFileYackage <- liftIO $ getYackageFile package
+    fh <- liftIO $ isFile localFileHackage
+    fy <- liftIO $ isFile localFileYackage
     let handleFile localFile noChanges = do
             debug $ "Comparing: " ++ show (fp, localFile)
             isDiff <- compareTGZ localFile fp
@@ -110,31 +114,31 @@ go m fp = do
     status <-
         case () of
             ()
-                | fh -> handleFile localFileHackage NoChanges
-                | fy -> handleFile localFileYackage OnlyOnYackage
+                | fh -> liftIO $ handleFile localFileHackage NoChanges
+                | fy -> liftIO $ handleFile localFileYackage OnlyOnYackage
                 | otherwise -> do
-                    reqH <- getUrlHackage package
-                    resH <- httpLbsRedirect reqH { rawBody = True } m
+                    reqH <- liftIO $ getUrlHackage package
+                    resH <- C.runResourceT $ httpLbs reqH { rawBody = True, checkStatus = \_ _ -> Nothing } m
                     case () of
                         ()
-                            | statusCode resH == 404 || L.length (responseBody resH) == 0 -> do
-                                debug $ "Not found on Hackage: " ++ show fp
-                                reqY <- getUrlYackage package
-                                resY <- httpLbsRedirect reqY m
+                            | statusCode resH == status404 || L.length (responseBody resH) == 0 -> do
+                                liftIO $ debug $ "Not found on Hackage: " ++ show fp
+                                reqY <- liftIO $ getUrlYackage package
+                                resY <- C.runResourceT $ httpLbs reqY { checkStatus = \_ _ -> Nothing } m
                                 case () of
                                     ()
-                                        | statusCode resY == 404 || L.length (responseBody resY) == 0 -> do
-                                            debug $ "Not found on Yackage: " ++ show fp
+                                        | statusCode resY == status404 || L.length (responseBody resY) == 0 -> do
+                                            liftIO $ debug $ "Not found on Yackage: " ++ show fp
                                             return DoesNotExist
-                                        | statusCode resY == 200 -> do
+                                        | statusCode resY == status200 -> liftIO $ do
                                             createTree $ directory localFileYackage
                                             L.writeFile (encodeString localFileYackage) $ responseBody resY
                                             handleFile localFileYackage OnlyOnYackage
-                                        | statusCode resY == 502 -> do
+                                        | statusCode resY == status502 -> do
                                             debug $ "Yackage isn't running"
                                             return DoesNotExist
                                         | otherwise -> error $ "Invalid status code: " ++ show (statusCode resY)
-                            | statusCode resH == 200 -> do
+                            | statusCode resH == status200 -> do
                                 createTree $ directory localFileHackage
                                 L.writeFile (encodeString localFileHackage) $ responseBody resH
                                 handleFile localFileHackage NoChanges
@@ -171,9 +175,9 @@ compareTGZ a b = {- FIXME catcher $ -} do
     catcher = handle (\SomeException{} -> debug (show ("compareTGZ" :: String, a, b)) >> return True)
     getContents fp = do
         lbs <- L.readFile (encodeString fp)
-        ebss <- try' $ E.run $ E.enumList 8 (L.toChunks lbs) E.$$ ungzip E.=$ EL.consume
+        ebss <- try $ C.runResourceT $ CL.sourceList (L.toChunks lbs) C.$$ ungzip C.=$ CL.consume
         case ebss of
-            Left e -> do
+            Left (e :: SomeException) -> do
                 putStrLn $ concat
                     [ "Error opening tarball: "
                     , encodeString fp
@@ -193,11 +197,3 @@ compareTGZ a b = {- FIXME catcher $ -} do
         case Tar.entryContent e of
             Tar.NormalFile lbs _ -> Map.singleton (Tar.entryPath e) lbs
             _ -> Map.empty
-
-try' :: Exception e => IO (Either e a) -> IO (Either e a)
-try' f = do
-    eex <- try f
-    case eex of
-        Left e -> return $ Left e
-        Right (Left e) -> return $ Left e
-        Right (Right a) -> return $ Right a
