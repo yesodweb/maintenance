@@ -1,26 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-import Prelude hiding (FilePath)
+import Prelude hiding (FilePath, getContents)
 import System.Environment (getArgs)
 import Network.HTTP.Conduit
 import Network.HTTP.Types (status200, status404, status502)
 import Filesystem
 import Filesystem.Path.CurrentOS hiding (concat)
 import qualified Data.Text as T
-import System.PosixCompat.Files
-import Safe
-import qualified Data.ByteString.Char8 as S8
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Control.Monad (unless, when, forM_)
+import Control.Monad (when, forM_)
 import qualified Data.ByteString.Lazy as L
-import Codec.Compression.GZip (decompress)
 import qualified Codec.Archive.Tar as Tar
 import Data.Conduit.Zlib (ungzip)
 import qualified Data.Conduit as C
 import qualified Data.Conduit.List as CL
-import Control.Exception (try, Exception, SomeException (..), handle)
+import Control.Exception (try, SomeException (..))
 import Control.Monad.IO.Class (liftIO)
 
 debug :: String -> IO ()
@@ -30,7 +26,7 @@ debug = putStrLn
 debug = const $ return ()
 #endif
 
-getUrlHackage :: Package -> IO (Request IO)
+getUrlHackage :: Package -> IO (Request m)
 getUrlHackage (Package a b) = do
     debug url
     parseUrl url
@@ -47,7 +43,7 @@ getUrlHackage (Package a b) = do
         , ".tar.gz"
         ]
 
-getUrlYackage :: Package -> IO (Request IO)
+getUrlYackage :: Package -> IO (Request m)
 getUrlYackage (Package a b) = do
     debug url
     parseUrl url
@@ -62,10 +58,10 @@ getUrlYackage (Package a b) = do
 
 main :: IO ()
 main = do
-    m <- newManager def
+    manager <- newManager def
     (dir':args) <- getArgs
     let toPrune = args == ["--prune"]
-    ss <- listDirectory (decodeString dir') >>= mapM (go m)
+    ss <- listDirectory (decodeString dir') >>= mapM (go manager)
     let m = Map.unionsWith Set.union ss
     let say = putStrLn . reverse . drop 7 . reverse . encodeString . filename
 
@@ -114,35 +110,35 @@ go m fp = do
     status <-
         case () of
             ()
-                | fh -> liftIO $ handleFile localFileHackage NoChanges
-                | fy -> liftIO $ handleFile localFileYackage OnlyOnYackage
+                | fh -> handleFile localFileHackage NoChanges
+                | fy -> handleFile localFileYackage OnlyOnYackage
                 | otherwise -> do
-                    reqH <- liftIO $ getUrlHackage package
+                    reqH <- getUrlHackage package
                     resH <- C.runResourceT $ httpLbs reqH { rawBody = True, checkStatus = \_ _ -> Nothing } m
                     case () of
                         ()
-                            | statusCode resH == status404 || L.length (responseBody resH) == 0 -> do
+                            | responseStatus resH == status404 || L.length (responseBody resH) == 0 -> do
                                 liftIO $ debug $ "Not found on Hackage: " ++ show fp
-                                reqY <- liftIO $ getUrlYackage package
+                                reqY <- getUrlYackage package
                                 resY <- C.runResourceT $ httpLbs reqY { checkStatus = \_ _ -> Nothing } m
                                 case () of
                                     ()
-                                        | statusCode resY == status404 || L.length (responseBody resY) == 0 -> do
+                                        | responseStatus resY == status404 || L.length (responseBody resY) == 0 -> do
                                             liftIO $ debug $ "Not found on Yackage: " ++ show fp
                                             return DoesNotExist
-                                        | statusCode resY == status200 -> liftIO $ do
+                                        | responseStatus resY == status200 -> liftIO $ do
                                             createTree $ directory localFileYackage
                                             L.writeFile (encodeString localFileYackage) $ responseBody resY
                                             handleFile localFileYackage OnlyOnYackage
-                                        | statusCode resY == status502 -> do
+                                        | responseStatus resY == status502 -> do
                                             debug $ "Yackage isn't running"
                                             return DoesNotExist
-                                        | otherwise -> error $ "Invalid status code: " ++ show (statusCode resY)
-                            | statusCode resH == status200 -> do
+                                        | otherwise -> error $ "Invalid status code: " ++ show (responseStatus resY)
+                            | responseStatus resH == status200 -> do
                                 createTree $ directory localFileHackage
                                 L.writeFile (encodeString localFileHackage) $ responseBody resH
                                 handleFile localFileHackage NoChanges
-                            | otherwise -> error $ "Invalid status code: " ++ show (statusCode resH)
+                            | otherwise -> error $ "Invalid status code: " ++ show (responseStatus resH)
     return $ Map.singleton status $ Set.singleton fp
 
 data Package = Package String String
@@ -172,7 +168,7 @@ compareTGZ a b = {- FIXME catcher $ -} do
     b' <- getContents b
     return $ a' /= b'
   where
-    catcher = handle (\SomeException{} -> debug (show ("compareTGZ" :: String, a, b)) >> return True)
+    -- catcher = handle (\SomeException{} -> debug (show ("compareTGZ" :: String, a, b)) >> return True)
     getContents fp = do
         lbs <- L.readFile (encodeString fp)
         ebss <- try $ C.runResourceT $ CL.sourceList (L.toChunks lbs) C.$$ ungzip C.=$ CL.consume
@@ -187,13 +183,13 @@ compareTGZ a b = {- FIXME catcher $ -} do
                 return Map.empty
             Right bss -> do
                 l <- toList $ Tar.read $ L.fromChunks bss
-                return $ Map.unions $ map go l
+                return $ Map.unions $ map go' l
     toList (Tar.Next e es) = do
         l <- toList es
         return $ e : l
     toList Tar.Done = return []
-    toList (Tar.Fail s) = error s
-    go e =
+    toList (Tar.Fail s) = error $ show s
+    go' e =
         case Tar.entryContent e of
             Tar.NormalFile lbs _ -> Map.singleton (Tar.entryPath e) lbs
             _ -> Map.empty
