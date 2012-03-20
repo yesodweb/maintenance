@@ -6,5 +6,5 @@ ghc --make extract.hs
 cd tmp
 for f in $(find . -name \*.lhs) $(find . -name \*.hs)
 do
-    ghc -Werror $f --make
+    ghc -Werror $f --make -optl-lpthread
 done
