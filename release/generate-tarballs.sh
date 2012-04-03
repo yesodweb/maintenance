@@ -29,4 +29,5 @@ rm -f \
     $DIR/tarballs/wai-handler-webkit-*.tar.gz \
     $DIR/tarballs/yesod-mega-*.tar.gz \
     $DIR/tarballs/shakespeare-test-*.tar.gz \
-    $DIR/tarballs/persistent-test-*.tar.gz
+    $DIR/tarballs/persistent-test-*.tar.gz \
+    $DIR/tarballs/yesod-dev-install-*.tar.gz
