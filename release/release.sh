@@ -21,7 +21,10 @@ do
 done
 
 # Special yesod scaffolding test
-cd $DIR/yesod/yesod && ./test/run.sh || exit 1
+if [ -d $DIR/yesod/yesod ]
+then
+    cd $DIR/yesod/yesod && ./test/run.sh || exit 1
+fi
 
 cd $DIR
 
