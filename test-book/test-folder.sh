@@ -1,7 +1,7 @@
 #!/bin/bash -ex
 
-ghc --make extract.hs
-./extract $1 tmp
+cabal build || cabal configure && cabal build
+./dist/build/extract/extract $1 tmp
 
 cd tmp
 for f in $(find . -name \*.lhs) $(find . -name \*.hs)

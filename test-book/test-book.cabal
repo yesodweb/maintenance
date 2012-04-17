@@ -1,0 +1,27 @@
+Name:                test-book
+Version:             0.1
+License:             BSD3
+License-file:        LICENSE
+Author:              michael
+Category:            Codec
+Build-type:          Simple
+Cabal-version:       >=1.2
+
+
+Executable extract
+  Main-is:             extract.hs
+  Build-depends:       base
+                     , enumerator
+                     , filesystem-enumerator
+                     , containers
+                     , text
+                     , transformers
+                     , xml-conduit
+                     , system-filepath
+                     , system-fileio
+
+executable add-ids
+  Main-is:             add-ids.hs
+  Build-depends:       xml-types
+                     , conduit
+                     , filesystem-conduit

@@ -4,30 +4,30 @@ import Text.XML.Stream.Render
 import Data.XML.Types
 import System.Environment (getArgs)
 import Filesystem.Path.CurrentOS
-import Filesystem.Enumerator
-import Data.Enumerator (($$), run_, enumList, (=$))
-import Data.Enumerator.Binary (iterHandle)
-import qualified Data.Enumerator.List as EL
+import Data.Conduit
+import qualified Data.Conduit.List as CL
+import Data.Conduit.Binary (sinkHandle)
 import qualified Data.Set as Set
 import Filesystem
 import Prelude hiding (FilePath)
 import qualified Data.Text as T
+import Data.Conduit.Filesystem
 
 main :: IO ()
 main = do
     [dir'] <- getArgs
     let dir = decodeString dir'
-    run_ $ traverse False dir $$ EL.filter isXML =$ EL.mapM_ fixIds
+    traverse False dir $$ CL.filter isXML =$ CL.mapM_ fixIds
   where
     isXML fp = hasExtension fp "ditamap" || hasExtension fp "dita"
 
 fixIds :: FilePath -> IO ()
 fixIds fp = do
-    events <- parseFile_ def (encodeString fp) EL.consume
+    events <- runResourceT $ parseFile def fp $$ CL.consume
     let (used, events') = noDups Set.empty events
     let tmp = fp <.> "tmp"
     let events'' = addIds 1 used events'
-    withFile tmp WriteMode $ \h -> run_ $ enumList 8 events'' $$ renderBytes def =$ iterHandle h
+    withFile tmp WriteMode $ \h -> CL.sourceList events'' $$ renderBytes def =$ sinkHandle h
     rename tmp fp
 
 noDups used [] = (used, [])

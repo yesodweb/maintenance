@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternGuards #-}
 import Prelude hiding (FilePath)
 import Filesystem
 import Filesystem.Path.CurrentOS
